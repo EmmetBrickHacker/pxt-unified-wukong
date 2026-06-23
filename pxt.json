@@ -5,12 +5,16 @@
     "dependencies": {
         "core": "*",
         "radio": "*",
-        "microphone": "*"
+        "microphone": "*",
+        "wuKong": "github:elecfreaks/pxt-wukong#v1.5.9",
+        "Value Packer": "github:BrickHackers/pxt-valpacker#429fdbfc478e793eb0c927e5be563532b966f4dc"
     },
     "files": [
         "README.md",
         "main.blocks",
-        "main.ts"
+        "main.ts",
+        "uwv.ts",
+        "nums.ts"
     ],
     "testFiles": [
         "test.ts"
