@@ -1,11 +1,10 @@
 {
-    "name": "pxt-unified-wukong",
-    "version": "0.0.0",
-    "description": "",
+    "name": "Unified Wukong Vehicle",
+    "version": "1.0.0",
+    "description": "Extension to simplify creating a remote controlled (by ElecFreaks Joystick:bit) vehicle  using the micro:bit and ElecFreaks Wukong board.",
     "dependencies": {
         "core": "*",
         "radio": "*",
-        "microphone": "*",
         "wuKong": "github:elecfreaks/pxt-wukong#v1.5.9",
         "Value Packer": "github:BrickHackers/pxt-valpacker#429fdbfc478e793eb0c927e5be563532b966f4dc"
     },
