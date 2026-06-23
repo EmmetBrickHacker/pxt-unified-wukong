@@ -11,6 +11,7 @@
     },
     "files": [
         "README.md",
+        "led5x5.ts",
         "main.blocks",
         "main.ts",
         "uwv.ts",
