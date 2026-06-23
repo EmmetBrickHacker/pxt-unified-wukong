@@ -1,4 +1,6 @@
-// Enum for predefined ping timeout values
+// Part of extension https://github.com/EmmetBrickHacker/pxt-unified-wukong/
+// Actual file [!] https://github.com/EmmetBrickHacker/pxt-unified-wukong/blob/master/uwv.ts
+
 enum ConnectionTimeout {
     //% block="500 ms"
     Ms500 = 500,
@@ -22,6 +24,7 @@ namespace uwv {
     let rightMotorDir: number = 1;
     let pingTimeoutMs: number = 2000;
     let deadZoneRadius: number = 15;
+    let activeRadioGroup: number = 0;
 
     // Connection state variables
     let connection: boolean = false;
@@ -31,14 +34,14 @@ namespace uwv {
      * Initializes the Unified Wukong Vehicle receiver with motor and radio configurations.
      * @param radioGroup radio group to listen on (0-255), e.g.: 0
      * @param leftPort port for the left motor, e.g.: wuKong.MotorList.M1
-     * @param leftReverse toggle ON to invert left motor direction, default is OFF (Forward)
+     * @param leftReverse rotation direction of the left motor for forward movement
      * @param rightPort port for the right motor, e.g.: wuKong.MotorList.M2
-     * @param rightReverse toggle ON to invert right motor direction, default is OFF (Forward)
-     * @param pingTimeout selection of predefined connection timeouts in ms, default is 2000 ms
-     * @param deadzone radius of the deadzone around zero to ignore joystick jitter, e.g.: 15
+     * @param rightReverse rotation direction of the right motor for forward movement
+     * @param pingTimeout duration without receiving radio signals before forcing a stop
+     * @param deadzone inner joystick region threshold where movement values are ignored
      */
     //% blockId=uwv_init_vehicle
-    //% block="initialize Unified Wukong Vehicle | radio group $radioGroup left motor $leftPort reverese left motor $leftReverse right motor $rightPort reverese right motor $rightReverse||ping timeout (ms) $pingTimeout deadzone $deadzone"
+    //% block="initialize Unified Wukong Vehicle | radio group $radioGroup left motor $leftPort reverse left motor $leftReverse right motor $rightPort reverse right motor $rightReverse||ping timeout (ms) $pingTimeout deadzone $deadzone"
     //% radioGroup.min=0 radioGroup.max=255 radioGroup.defl=0
     //% leftPort.defl=wuKong.MotorList.M1
     //% leftReverse.shadow="toggleOnOff" leftReverse.defl=false
@@ -61,27 +64,27 @@ namespace uwv {
 
         leftMotorPort = leftPort;
         rightMotorPort = rightPort;
-
-        // Map boolean toggles to numerical multipliers: 
-        // ON (true) = Reverse (-1), OFF (false) = Forward (1)
         leftMotorDir = leftReverse ? -1 : 1;
         rightMotorDir = rightReverse ? -1 : 1;
-
-        // Cast the enum selection to its underlying millisecond number
         pingTimeoutMs = <number>pingTimeout;
         deadZoneRadius = deadzone;
+        activeRadioGroup = radioGroup;
 
+        // Apply radio frequency grouping
         radio.setGroup(radioGroup);
         connection = false;
         lastPingTime = control.millis();
 
+        // Configure and start the dedicated screen management subsystem
+        led5x5.setRadioGroup(activeRadioGroup);
+        led5x5.setVisualState(VehicleVisualState.ShowRadioGroup);
+        led5x5.startDisplayManager();
+
+        // Run background receiver and monitor loops
         setupRadioReceiver();
         startConnectionMonitor();
 
         isInitialized = true;
-
-        // Show initial status on the LED screen (waiting for connection)
-        nums.icon(radioGroup).showImage(0);
     }
 
     /**
@@ -95,77 +98,83 @@ namespace uwv {
 
     // --- INTERNAL FUNCTIONS ---
 
+    /**
+     * Set up async radio handler for control packets.
+     */
     function setupRadioReceiver(): void {
         radio.onReceivedValue(function (name: string, value: number) {
             if (name == "urcping") {
                 if (!connection) {
                     connection = true;
-                    basic.showIcon(IconNames.Yes); // Connection established
+                    led5x5.setVisualState(VehicleVisualState.Connected);
                 }
                 lastPingTime = control.millis();
             } else if (name == "urccoord") {
-                // Any valid coordinate packet also confirms active connection
                 if (!connection) {
                     connection = true;
-                    basic.showIcon(IconNames.Yes);
+                    led5x5.setVisualState(VehicleVisualState.Connected);
                 }
                 lastPingTime = control.millis();
 
-                // Unpack data using pxt-valpacker
-                // Fully compatible with pxt-unified-rc layout (Left = X, Right = Y)
+                // Unpack differential coordinates
                 let x = ValPacker.unpack(Package.Left, value);
                 let y = ValPacker.unpack(Package.Right, value);
 
                 processDrive(x, y);
+            } else if (name == "urcbtn") {
+                lastPingTime = control.millis();
+                if (!connection) {
+                    connection = true;
+                }
+
+                // DIRECT MAPPING: Cast the raw protocol value straight into the visual state enum
+                led5x5.setVisualState(<VehicleVisualState>value);
             }
         });
     }
 
+    /**
+     * Runs periodic background check evaluating link health.
+     */
     function startConnectionMonitor(): void {
-        // Background loop checking for connection timeout every 100 ms
         loops.everyInterval(100, function () {
             if (connection && (control.millis() - lastPingTime > pingTimeoutMs)) {
                 connection = false;
                 wuKong.stopAllMotor(); // Failsafe: instantly cut off power to all motors
-                basic.showIcon(IconNames.No); // Visual indicator for disconnected state
+                led5x5.setVisualState(VehicleVisualState.Disconnected);
             }
         });
     }
 
+    /**
+     * Calculates arcade differential mixing and sends power outputs to wuKong motors.
+     */
     function processDrive(x: number, y: number): void {
         if (!connection) {
             wuKong.stopAllMotor();
             return;
         }
 
-        // 1. Apply deadzone filtering
-        // Values strictly inside (-deadZoneRadius, deadZoneRadius) are zeroed out.
-        // Threshold values (e.g., exactly -15 or 15) are accepted and passed through.
-        if (Math.abs(x) < deadZoneRadius) {
-            x = 0;
-        }
-        if (Math.abs(y) < deadZoneRadius) {
-            y = 0;
-        }
+        // Apply deadzone filtering
+        if (Math.abs(x) < deadZoneRadius) { x = 0; }
+        if (Math.abs(y) < deadZoneRadius) { y = 0; }
 
-        // 2. Arcade steering inversion when driving in reverse
-        if (y < 0) {
-            x = -x;
-        }
+        // Arcade steering inversion when driving in reverse
+        if (y < 0) { x = -x; }
 
-        // 3. Differential motor mixing
+        // Differential motor mixing
         let leftSpeed = y + x;
         let rightSpeed = y - x;
 
-        // 4. Clamp speeds to valid Wukong limits (-100 to 100)
+        // Clamp speeds to valid Wukong limits (-100 to 100)
         leftSpeed = Math.max(-100, Math.min(100, leftSpeed));
         rightSpeed = Math.max(-100, Math.min(100, rightSpeed));
 
-        // 5. Apply motor orientation correction (Forward = *1, Reverse = *-1)
+        // Apply motor orientation adjustments
         leftSpeed = leftSpeed * leftMotorDir;
         rightSpeed = rightSpeed * rightMotorDir;
 
-        // 6. Write physical speeds to the Wukong board
+        // Execute hardware speed adjustments
         wuKong.setMotorSpeed(leftMotorPort, leftSpeed);
         wuKong.setMotorSpeed(rightMotorPort, rightSpeed);
     }
