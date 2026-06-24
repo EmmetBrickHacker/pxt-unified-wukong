@@ -74,6 +74,18 @@ namespace led5x5 {
     let currentTargetState: VehicleVisualState = VehicleVisualState.ShowRadioGroup;
     let currentlyRenderedState: number = -1; // -1 forces initial redraw upon startup
     let radioGroupValue: number = 0;
+    let customImageActive: boolean = false;
+    let customImageDisplayEnd: number = 0;
+
+    /**
+     * Forces a custom image to be rendered for 500ms, overriding normal states.
+     */
+    export function renderCustomAction(img: Image): void {
+        customImageActive = true;
+        customImageDisplayEnd = control.millis() + 500; // Show for 500ms
+        img.showImage(0); // Immediately blast it to the screen
+        currentlyRenderedState = -1; // Force a full state re-evaluation after the timeout
+    }
 
     // State timing and configuration variables
     let stateStartTime: number = 0;
@@ -112,6 +124,15 @@ namespace led5x5 {
         // 247 ms interval prevents periodic synchronization with 100ms or 500ms radio tasks
         loops.everyInterval(247, function () {
 
+            // --- 0. Custom Action Override ---
+            if (customImageActive) {
+                if (control.millis() < customImageDisplayEnd) {
+                    return; // Skip normal rendering while custom image is active
+                } else {
+                    customImageActive = false; // Timeout reached, resume normal operations
+                }
+            }
+            
             // --- 1. Evaluate automatic state reversions BEFORE rendering ---
             if (currentTargetState === VehicleVisualState.Connected) {
                 // Return to ID after 1 second of successful connection

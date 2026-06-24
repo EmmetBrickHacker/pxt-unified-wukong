@@ -143,6 +143,18 @@ namespace uwv {
 
                 // DIRECT MAPPING: Cast the raw protocol value straight into the visual state enum
                 led5x5.setVisualState(<VehicleVisualState>value);
+                
+            } else if (name == "urcbtn") {
+                lastPingTime = control.millis();
+                if (!connection) {
+                    connection = true;
+                }
+
+                // Visual feedback
+                led5x5.setVisualState(<VehicleVisualState>value);
+
+                // NOVÉ: Trigger user reaction blocks & update autofire states
+                uwv.processButtonMessage(value);
             }
         });
     }

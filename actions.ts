@@ -5,13 +5,13 @@
  * Includes Unicode icons to solve the physical label overlap issue.
  */
 enum URCButtonId {
-    //% block="◀ C"
+    //% block="◄ C"
     C,
     //% block="▲ D"
     D,
     //% block="▼ E"
     E,
-    //% block="▶ F"
+    //% block="► F"
     F
 }
 
@@ -62,7 +62,7 @@ namespace uwv {
         }
     }
 
-    // --- USER BLOCKS (SUBCATEGORY: REACTIONS) ---
+    // --- USER BLOCKS (SUBCATEGORY: ACTIONS) ---
 
     /**
      * Event handler that runs code when a specific controller button is pressed or released.
@@ -96,7 +96,7 @@ namespace uwv {
     //% blockId=uwv_is_button_pressed 
     //% block="controller button $btn is pressed | alt mode $altMode"
     //% altMode.shadow="toggleOnOff" altMode.defl=false
-    //% subcategory="Reactions"
+    //% subcategory="Actions"
     //% weight=90
     export function isControllerButtonPressed(btn: URCButtonId, altMode: boolean = false): boolean {
         if (altMode) {
@@ -113,7 +113,7 @@ namespace uwv {
     //% blockId=uwv_show_action_icon 
     //% block="show action icon $img"
     //% img.shadow="device_build_image"
-    //% subcategory="Reactions"
+    //% subcategory="Actions"
     //% weight=80
     export function showActionIcon(img: Image): void {
         // This bypasses the strict enum and directly forces an image
