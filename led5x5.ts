@@ -120,6 +120,10 @@ namespace led5x5 {
      * Starts the background task that manages low-latency screen updates.
      * Uses a specific asynchronous timing interval to minimize collision risks.
      */
+    /**
+     * Starts the background task that manages low-latency screen updates.
+     * Uses a specific asynchronous timing interval to minimize collision risks.
+     */
     export function startDisplayManager(): void {
         // 247 ms interval prevents periodic synchronization with 100ms or 500ms radio tasks
         loops.everyInterval(247, function () {
@@ -132,7 +136,7 @@ namespace led5x5 {
                     customImageActive = false; // Timeout reached, resume normal operations
                 }
             }
-            
+
             // --- 1. Evaluate automatic state reversions BEFORE rendering ---
             if (currentTargetState === VehicleVisualState.Connected) {
                 // Return to ID after 1 second of successful connection
@@ -173,15 +177,6 @@ namespace led5x5 {
 
                     case VehicleVisualState.Disconnected:
                         basic.showIcon(IconNames.No);
-                        break;
-
-                    // Example handling of specific button events (can be customized or left blank)
-                    case VehicleVisualState.BtnC_Pressed:
-                        basic.showString("C");
-                        break;
-
-                    case VehicleVisualState.AltBtnC_Pressed:
-                        basic.showString("X");
                         break;
 
                     default:
