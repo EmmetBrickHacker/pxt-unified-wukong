@@ -96,6 +96,20 @@ namespace uwv {
         return connection;
     }
 
+    // --- ADVANCED CONFIGURATION BLOCKS ---
+
+    /**
+     * Configures the display behavior of the vehicle.
+     * @param mode how the disconnected state icon should be dismissed
+     */
+    //% blockId=uwv_config_display
+    //% block="clear connection lost status by $mode"
+    //% mode.defl=DisconnectClearMode.Timeout
+    //% advanced=true
+    export function configureDisplay(mode: DisconnectClearMode): void {
+        led5x5.setDisconnectClearMode(mode);
+    }
+    
     // --- INTERNAL FUNCTIONS ---
 
     /**

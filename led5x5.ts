@@ -54,17 +54,47 @@ enum VehicleVisualState {
     AltBtnF_Released = 160
 }
 
+/**
+ * Modes for clearing the disconnected (offline) status screen.
+ */
+enum DisconnectClearMode {
+    //% block="Timeout (5s)"
+    Timeout,
+    //% block="Button A"
+    ButtonA,
+    //% block="Button B"
+    ButtonB,
+    //% block="Button A+B"
+    ButtonAB,
+    //% block="Logo"
+    Logo
+}
+
 namespace led5x5 {
     let currentTargetState: VehicleVisualState = VehicleVisualState.ShowRadioGroup;
     let currentlyRenderedState: number = -1; // -1 forces initial redraw upon startup
     let radioGroupValue: number = 0;
+
+    // State timing and configuration variables
+    let stateStartTime: number = 0;
+    let clearMode: DisconnectClearMode = DisconnectClearMode.Timeout;
+
+    /**
+     * Sets the condition to clear the disconnected screen.
+     */
+    export function setDisconnectClearMode(mode: DisconnectClearMode): void {
+        clearMode = mode;
+    }
 
     /**
      * Updates the intended visual state of the vehicle's LED screen.
      * The manager thread will handle the actual redraw if the state changed.
      */
     export function setVisualState(state: VehicleVisualState): void {
-        currentTargetState = state;
+        if (currentTargetState !== state) {
+            currentTargetState = state;
+            stateStartTime = control.millis(); // Reset timer for the new state
+        }
     }
 
     /**
@@ -81,6 +111,33 @@ namespace led5x5 {
     export function startDisplayManager(): void {
         // 247 ms interval prevents periodic synchronization with 100ms or 500ms radio tasks
         loops.everyInterval(247, function () {
+
+            // --- 1. Evaluate automatic state reversions BEFORE rendering ---
+            if (currentTargetState === VehicleVisualState.Connected) {
+                // Return to ID after 1 second of successful connection
+                if (control.millis() - stateStartTime > 1000) {
+                    setVisualState(VehicleVisualState.ShowRadioGroup);
+                }
+            } else if (currentTargetState === VehicleVisualState.Disconnected) {
+                // Clear disconnected screen based on user configuration
+                if (clearMode === DisconnectClearMode.Timeout) {
+                    if (control.millis() - stateStartTime > 5000) {
+                        setVisualState(VehicleVisualState.ShowRadioGroup);
+                    }
+                } else {
+                    let dismissPressed = false;
+                    if (clearMode === DisconnectClearMode.ButtonA && input.buttonIsPressed(Button.A)) dismissPressed = true;
+                    if (clearMode === DisconnectClearMode.ButtonB && input.buttonIsPressed(Button.B)) dismissPressed = true;
+                    if (clearMode === DisconnectClearMode.ButtonAB && input.buttonIsPressed(Button.AB)) dismissPressed = true;
+                    if (clearMode === DisconnectClearMode.Logo && input.logoIsPressed()) dismissPressed = true;
+
+                    if (dismissPressed) {
+                        setVisualState(VehicleVisualState.ShowRadioGroup);
+                    }
+                }
+            }
+
+            // --- 2. Render state if changed ---
             if (currentTargetState !== currentlyRenderedState) {
                 currentlyRenderedState = currentTargetState;
 
@@ -107,9 +164,9 @@ namespace led5x5 {
                         break;
 
                     default:
-                        // If an unhandled button state or release event is caught, 
-                        // we fallback to the Connected icon (checkmark) to show we are still online.
-                        basic.showIcon(IconNames.Yes);
+                        // Fallback: If an unhandled button state or release event is caught, 
+                        // revert immediately back to the ID screen.
+                        nums.icon(radioGroupValue).showImage(0);
                         break;
                 }
             }
